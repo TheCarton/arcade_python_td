@@ -36,22 +36,19 @@ class Enemy(arcade.Sprite):
 
     def __init__(self, image, scale, position_list):
         super().__init__(image, scale)
+        self.arrived = False
         self.position_list = position_list
-        self.cur_position = 0
+        self.cur_position = None
         self.speed = ENEMY_SPEED
-
-    def update_position_list(self, position_list):
-        if self.position_list is None or self.position_list != position_list:
-            self.cur_position = 0
-            self.position_list = position_list
-
-
 
     def update(self):
         """ Have a sprite follow a path """
-        if self.position_list is None:
-            return
+        if self.cur_position is None:
+            self.cur_position = len(self.position_list) - 1
 
+        if self.arrived:
+            print("enemy has arrived")
+            return
         # Where are we
         start_x = self.center_x
         start_y = self.center_y
@@ -88,7 +85,9 @@ class Enemy(arcade.Sprite):
 
         # If we are there, head to the next point.
         if distance <= self.speed:
-            self.cur_position = min(self.cur_position + 1, len(self.position_list) - 1)
+            self.cur_position = self.cur_position - 1
+            if self.cur_position <= 0:
+                self.arrived = True
 
 
 class MyGame(arcade.Window):
@@ -105,6 +104,8 @@ class MyGame(arcade.Window):
         super().__init__(width, height, title)
 
         # Variables that will hold sprite lists
+        self.goal_position = None
+        self.enemy_start = None
         self.player_list = None
         self.wall_list = None
         self.enemy_list = None
@@ -150,6 +151,10 @@ class MyGame(arcade.Window):
         self.player.center_y = SPRITE_SIZE * 1
         self.player_list.append(self.player)
 
+        self.goal_position = (SPRITE_SIZE * 15, SPRITE_SIZE * 4)
+        self.enemy_start = (SPRITE_SIZE * -1, SPRITE_SIZE * 0)
+
+
         spacing = SPRITE_SIZE * 3
         for column in range(10):
             for row in range(15):
@@ -161,57 +166,52 @@ class MyGame(arcade.Window):
 
                 sprite.center_x = x
                 sprite.center_y = y
-                if random.randrange(100) > 30:
+                not_goal = sprite.center_x != self.goal_position[0] and sprite.center_y != self.goal_position[1]
+                not_start = sprite.center_x != self.enemy_start[0] and sprite.center_y != self.enemy_start[1]
+                if random.randrange(100) > 30 and not_goal and not_start:
                     self.wall_list.append(sprite)
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player,
                                                          self.wall_list)
 
-        # --- Path related
-        # This variable holds the travel-path. We keep it as an attribute so
-        # we can calculate it in on_update, and draw it in on_draw.
-        self.path = None
-        # Grid size for calculations. The smaller the grid, the longer the time
-        # for calculations. Make sure the grid aligns with the sprite wall grid,
-        # or some openings might be missed.
         grid_size = SPRITE_SIZE
 
-        # Calculate the playing field size. We can't generate paths outside of
-        # this.
         playing_field_left_boundary = -SPRITE_SIZE * 2
         playing_field_right_boundary = SPRITE_SIZE * 35
         playing_field_top_boundary = SPRITE_SIZE * 17
         playing_field_bottom_boundary = -SPRITE_SIZE * 2
 
-        # List of points the enemy will travel too.
-
         # Create the enemy
         enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
                       SPRITE_SCALING_ENEMY, self.path)
 
-        # Set initial location of the enemy at the first point
-        enemy.center_x = 50
-
         # Add the enemy to the enemy list
         self.enemy_list.append(enemy)
 
-        # This calculates a list of barriers. By calculating it here in the
-        # init, we are assuming this list does not change. In this example,
-        # our walls don't move, so that is ok. If we want moving barriers (such as
-        # moving platforms or enemies) we need to recalculate. This can be an
-        # time-intensive process depending on the playing field size and grid
-        # resolution.
-
-        # Note: If the enemy sprites are the same size, we only need to calculate
-        # one of these. We do NOT need a different one for each enemy. The sprite
-        # is just used for a size calculation.
-        self.barrier_list = arcade.AStarBarrierList(enemy,
+        self.barrier_list = arcade.AStarBarrierList(self.enemy_list[0],
                                                     self.wall_list,
                                                     grid_size,
                                                     playing_field_left_boundary,
                                                     playing_field_right_boundary,
                                                     playing_field_bottom_boundary,
                                                     playing_field_top_boundary)
+
+        assert self.enemy_start not in self.barrier_list.barrier_list
+        assert self.goal_position not in self.barrier_list.barrier_list
+
+        self.path = arcade.astar_calculate_path(self.goal_position,
+                                                self.enemy_start,
+                                                self.barrier_list,
+                                                diagonal_movement=False)
+
+        assert self.path is not None
+
+        for enemy in self.enemy_list:
+            enemy.center_x = self.enemy_start[0]
+            enemy.center_y = self.enemy_start[1]
+            print(self.path, "->", self.goal_position)
+            if self.path is not None:
+                enemy.position_list = self.path
 
     def on_draw(self):
         """
@@ -246,18 +246,6 @@ class MyGame(arcade.Window):
 
         # Update the character
         self.physics_engine.update()
-
-        # Calculate a path to the player
-        # Set to True if we can move diagonally. Note that diagonal movement
-        # might cause the enemy to clip corners.
-        for enemy in self.enemy_list:
-            path = arcade.astar_calculate_path(enemy.position,
-                                               self.player.position,
-                                               self.barrier_list,
-                                               diagonal_movement=False)
-            print(path, "->", self.player.position)
-            if path is not None:
-                enemy.update_position_list(path)
 
         self.enemy_list.update()
 
