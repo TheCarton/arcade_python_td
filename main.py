@@ -169,12 +169,6 @@ class MyGame(arcade.Window):
         self.turret_list = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
 
-        resource = ":resources:images/space_shooter/playerShip1_orange.png"
-        turret = arcade.Sprite(resource, SPRITE_SCALING)
-        turret.center_x = SPRITE_SIZE * 3
-        turret.center_y = SPRITE_SIZE * 2
-        self.turret_list.append(turret)
-
         # Set up the player
         resource = ":resources:images/animated_characters/" \
                    "female_person/femalePerson_idle.png"
@@ -225,12 +219,32 @@ class MyGame(arcade.Window):
                                                     self.barrier_list,
                                                     diagonal_movement=False)
 
+        self.setup_turrets()
+
         for enemy in self.enemy_list:
             enemy.center_x = self.enemy_start[0]
             enemy.center_y = self.enemy_start[1]
-            print(self.path, "->", self.goal_position)
             if self.path is not None:
                 enemy.position_list = self.path
+
+    def setup_turrets(self):
+        assert self.wall_list is not None
+        resource = ":resources:images/space_shooter/playerShip1_orange.png"
+        wall_priority_list = []
+        for wall in self.wall_list:
+            distance = 0
+            for pos in self.path:
+                # How far are we?
+                distance += math.sqrt((wall.center_x - pos[0]) ** 2 + (wall.center_y - pos[1]) ** 2)
+            wall_priority_list.append((wall, distance))
+
+        wall_priority_list.sort(key=lambda x: x[1])
+
+        for i in range(5):
+            turret = arcade.Sprite(resource, SPRITE_SCALING)
+            turret.center_x = wall_priority_list[i][0].center_x
+            turret.center_y = wall_priority_list[i][0].center_y
+            self.turret_list.append(turret)
 
     def on_draw(self):
         """
@@ -280,9 +294,10 @@ class MyGame(arcade.Window):
 
         for bullet in self.bullet_list:
             hit_wall_list = arcade.check_for_collision_with_list(bullet, self.wall_list)
-            if len(hit_wall_list) > 0:
-                bullet.remove_from_sprite_lists()
-                continue
+            # if len(hit_wall_list) > 0:
+            # bullet.remove_from_sprite_lists()
+            # continue
+
             hit_enemy_list = arcade.check_for_collision_with_list(bullet, self.enemy_list)
             if len(hit_enemy_list) > 0:
                 bullet.remove_from_sprite_lists()
@@ -291,7 +306,6 @@ class MyGame(arcade.Window):
             # If the bullet flies off-screen, remove it.
             if bullet.bottom > self.width or bullet.top < 0 or bullet.right < 0 or bullet.left > self.width:
                 bullet.remove_from_sprite_lists()
-
 
         self.bullet_list.update()
 
