@@ -16,6 +16,8 @@ SPRITE_SCALING_PLAYER = 0.5
 SPRITE_SCALING_ENEMY = 0.5
 ENEMY_SPEED = 3.0
 
+BULLET_SPEED = 4
+
 SPRITE_IMAGE_SIZE = 128
 SPRITE_SCALING = 0.25
 SPRITE_SIZE = int(SPRITE_IMAGE_SIZE * SPRITE_SCALING)
@@ -27,6 +29,11 @@ SCREEN_TITLE = "A-Star Path-finding"
 MOVEMENT_SPEED = 5
 
 VIEWPORT_MARGIN = 100
+
+
+class Turret(arcade.Sprite):
+    def __init__(self, image, scale):
+        super().__init__(image, scale)
 
 
 class Enemy(arcade.Sprite):
@@ -47,7 +54,6 @@ class Enemy(arcade.Sprite):
             self.cur_position = len(self.position_list) - 1
 
         if self.arrived:
-            print("enemy has arrived")
             return
         # Where are we
         start_x = self.center_x
@@ -109,6 +115,9 @@ class MyGame(arcade.Window):
         self.player_list = None
         self.wall_list = None
         self.enemy_list = None
+        self.turret_list = None
+        self.bullet_list = None
+        self.frame_count = 0
 
         # Set up the player info
         self.player = None
@@ -134,27 +143,7 @@ class MyGame(arcade.Window):
         # Set the window background color
         self.background_color = arcade.color.AMAZON
 
-    def setup(self):
-        """ Set up the game and initialize the variables. """
-
-        # Sprite lists
-        self.player_list = arcade.SpriteList()
-        self.wall_list = arcade.SpriteList(use_spatial_hash=True,
-                                           spatial_hash_cell_size=128)
-        self.enemy_list = arcade.SpriteList()
-
-        # Set up the player
-        resource = ":resources:images/animated_characters/" \
-                   "female_person/femalePerson_idle.png"
-        self.player = arcade.Sprite(resource, SPRITE_SCALING)
-        self.player.center_x = SPRITE_SIZE * 5
-        self.player.center_y = SPRITE_SIZE * 1
-        self.player_list.append(self.player)
-
-        self.goal_position = (SPRITE_SIZE * 15, SPRITE_SIZE * 4)
-        self.enemy_start = (SPRITE_SIZE * -1, SPRITE_SIZE * 0)
-
-
+    def setup_walls(self):
         spacing = SPRITE_SIZE * 3
         for column in range(10):
             for row in range(15):
@@ -166,10 +155,36 @@ class MyGame(arcade.Window):
 
                 sprite.center_x = x
                 sprite.center_y = y
-                not_goal = sprite.center_x != self.goal_position[0] and sprite.center_y != self.goal_position[1]
-                not_start = sprite.center_x != self.enemy_start[0] and sprite.center_y != self.enemy_start[1]
-                if random.randrange(100) > 30 and not_goal and not_start:
+                if random.randrange(100) > 80:
                     self.wall_list.append(sprite)
+
+    def setup(self):
+        """ Set up the game and initialize the variables. """
+
+        # Sprite lists
+        self.player_list = arcade.SpriteList()
+        self.wall_list = arcade.SpriteList(use_spatial_hash=True,
+                                           spatial_hash_cell_size=128)
+        self.enemy_list = arcade.SpriteList()
+        self.turret_list = arcade.SpriteList()
+        self.bullet_list = arcade.SpriteList()
+
+        resource = ":resources:images/space_shooter/playerShip1_orange.png"
+        turret = arcade.Sprite(resource, SPRITE_SCALING)
+        turret.center_x = SPRITE_SIZE * 3
+        turret.center_y = SPRITE_SIZE * 2
+        self.turret_list.append(turret)
+
+        # Set up the player
+        resource = ":resources:images/animated_characters/" \
+                   "female_person/femalePerson_idle.png"
+        self.player = arcade.Sprite(resource, SPRITE_SCALING)
+        self.player.center_x = SPRITE_SIZE * 5
+        self.player.center_y = SPRITE_SIZE * 1
+        self.player_list.append(self.player)
+
+        self.goal_position = (SPRITE_SIZE * 15, SPRITE_SIZE * 4)
+        self.enemy_start = (SPRITE_SIZE * -1, SPRITE_SIZE * 0)
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player,
                                                          self.wall_list)
@@ -188,6 +203,8 @@ class MyGame(arcade.Window):
         # Add the enemy to the enemy list
         self.enemy_list.append(enemy)
 
+        self.setup_walls()
+
         self.barrier_list = arcade.AStarBarrierList(self.enemy_list[0],
                                                     self.wall_list,
                                                     grid_size,
@@ -196,15 +213,17 @@ class MyGame(arcade.Window):
                                                     playing_field_bottom_boundary,
                                                     playing_field_top_boundary)
 
-        assert self.enemy_start not in self.barrier_list.barrier_list
-        assert self.goal_position not in self.barrier_list.barrier_list
-
         self.path = arcade.astar_calculate_path(self.goal_position,
                                                 self.enemy_start,
                                                 self.barrier_list,
                                                 diagonal_movement=False)
 
-        assert self.path is not None
+        while self.path is None:
+            self.setup_walls()
+            self.path = arcade.astar_calculate_path(self.goal_position,
+                                                    self.enemy_start,
+                                                    self.barrier_list,
+                                                    diagonal_movement=False)
 
         for enemy in self.enemy_list:
             enemy.center_x = self.enemy_start[0]
@@ -224,14 +243,63 @@ class MyGame(arcade.Window):
         self.player_list.draw()
         self.wall_list.draw()
         self.enemy_list.draw()
+        self.turret_list.draw()
+        self.bullet_list.draw()
 
         if self.path:
             arcade.draw_line_strip(self.path, arcade.color.BLUE, 2)
+
+    def update_turrets(self, delta_time):
+        for enemy in self.enemy_list:
+            for turret in self.turret_list:
+                start_x = turret.center_x
+                start_y = turret.center_y
+
+                dest_x = enemy.center_x
+                dest_y = enemy.center_y
+
+                x_diff = dest_x - start_x
+                y_diff = dest_y - start_y
+                angle = math.atan2(y_diff, x_diff)
+
+                turret.angle = math.degrees(angle) - 90
+
+                if self.frame_count % 60 == 0:
+                    bullet = arcade.Sprite(":resources:images/space_shooter/laserBlue01.png")
+                    bullet.center_x = start_x
+                    bullet.center_y = start_y
+
+                    bullet.angle = math.degrees(angle)
+
+                    # Taking into account the angle, calculate our change_x
+                    # and change_y. Velocity is how fast the bullet travels.
+                    bullet.change_x = math.cos(angle) * BULLET_SPEED
+                    bullet.change_y = math.sin(angle) * BULLET_SPEED
+
+                    self.bullet_list.append(bullet)
+
+        for bullet in self.bullet_list:
+            hit_wall_list = arcade.check_for_collision_with_list(bullet, self.wall_list)
+            if len(hit_wall_list) > 0:
+                bullet.remove_from_sprite_lists()
+                continue
+            hit_enemy_list = arcade.check_for_collision_with_list(bullet, self.enemy_list)
+            if len(hit_enemy_list) > 0:
+                bullet.remove_from_sprite_lists()
+                continue
+
+            # If the bullet flies off-screen, remove it.
+            if bullet.bottom > self.width or bullet.top < 0 or bullet.right < 0 or bullet.left > self.width:
+                bullet.remove_from_sprite_lists()
+
+
+        self.bullet_list.update()
 
     def on_update(self, delta_time):
         """ Movement and game logic """
 
         # Calculate speed based on the keys pressed
+        self.frame_count += 1
         self.player.change_x = 0
         self.player.change_y = 0
 
@@ -246,8 +314,8 @@ class MyGame(arcade.Window):
 
         # Update the character
         self.physics_engine.update()
-
         self.enemy_list.update()
+        self.update_turrets(delta_time)
 
         # --- Manage Scrolling ---
 
