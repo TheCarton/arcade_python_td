@@ -67,7 +67,6 @@ class Enemy(arcade.Sprite):
         start_y = self.center_y
 
         # Where are we going
-        print(f"current pos: {self.cur_position}")
         dest_x = self.position_list[self.cur_position][0]
         dest_y = self.position_list[self.cur_position][1]
 
@@ -197,14 +196,15 @@ class MyGame(arcade.Window):
         playing_field_top_boundary = SPRITE_SIZE * 17
         playing_field_bottom_boundary = -SPRITE_SIZE * 2
 
+
+        self.setup_walls()
+
         # Create the enemy
         enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
                       SPRITE_SCALING_ENEMY, self.path)
 
         # Add the enemy to the enemy list
         self.enemy_list.append(enemy)
-
-        self.setup_walls()
 
         self.barrier_list = arcade.AStarBarrierList(self.enemy_list[0],
                                                     self.wall_list,
@@ -302,7 +302,7 @@ class MyGame(arcade.Window):
         for bullet in self.bullet_list:
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(bullet, enemy):
-                    enemy.take_damage(4)
+                    enemy.take_damage(2)
                     bullet.remove_from_sprite_lists()
                     continue
 
@@ -319,6 +319,13 @@ class MyGame(arcade.Window):
         self.frame_count += 1
         self.player.change_x = 0
         self.player.change_y = 0
+
+        # Create the enemy
+        if self.frame_count % 30 == 0:
+            enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
+                          SPRITE_SCALING_ENEMY, self.path)
+            # Add the enemy to the enemy list
+            self.enemy_list.append(enemy)
 
         if self.up_pressed and not self.down_pressed:
             self.player.change_y = MOVEMENT_SPEED
