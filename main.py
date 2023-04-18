@@ -47,6 +47,10 @@ class Enemy(arcade.Sprite):
         self.position_list = position_list
         self.cur_position = None
         self.speed = ENEMY_SPEED
+        self.health = 10.0
+
+    def take_damage(self, damage):
+        self.health -= damage
 
     def update(self):
         """ Have a sprite follow a path """
@@ -55,6 +59,9 @@ class Enemy(arcade.Sprite):
 
         if self.arrived:
             return
+
+        if self.health <= 0:
+            self.remove_from_sprite_lists()
         # Where are we
         start_x = self.center_x
         start_y = self.center_y
@@ -293,15 +300,11 @@ class MyGame(arcade.Window):
                     self.bullet_list.append(bullet)
 
         for bullet in self.bullet_list:
-            hit_wall_list = arcade.check_for_collision_with_list(bullet, self.wall_list)
-            # if len(hit_wall_list) > 0:
-            # bullet.remove_from_sprite_lists()
-            # continue
-
-            hit_enemy_list = arcade.check_for_collision_with_list(bullet, self.enemy_list)
-            if len(hit_enemy_list) > 0:
-                bullet.remove_from_sprite_lists()
-                continue
+            for enemy in self.enemy_list:
+                if arcade.check_for_collision(bullet, enemy):
+                    enemy.take_damage(4)
+                    bullet.remove_from_sprite_lists()
+                    continue
 
             # If the bullet flies off-screen, remove it.
             if bullet.bottom > self.width or bullet.top < 0 or bullet.right < 0 or bullet.left > self.width:
