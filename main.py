@@ -13,7 +13,8 @@ import math
 
 # --- Constants ---
 SPRITE_SCALING_PLAYER = 0.5
-SPRITE_SCALING_ENEMY = 0.5
+SPRITE_SCALING_ENEMY = 0.25
+TILE_SCALING = 0.5
 ENEMY_SPEED = 3.0
 
 BULLET_SPEED = 4
@@ -21,6 +22,7 @@ BULLET_SPEED = 4
 SPRITE_IMAGE_SIZE = 128
 SPRITE_SCALING = 0.25
 SPRITE_SIZE = int(SPRITE_IMAGE_SIZE * SPRITE_SCALING)
+GRID_PIXEL_SIZE = SPRITE_IMAGE_SIZE * TILE_SCALING
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -29,6 +31,12 @@ SCREEN_TITLE = "A-Star Path-finding"
 MOVEMENT_SPEED = 5
 
 VIEWPORT_MARGIN = 100
+
+# Maze must have an ODD number of rows and columns.
+# Walls go on EVEN rows/columns.
+# Openings go on ODD rows/columns
+MAZE_HEIGHT = 21
+MAZE_WIDTH = 21
 
 
 class Turret(arcade.Sprite):
@@ -55,13 +63,14 @@ class Enemy(arcade.Sprite):
     def update(self):
         """ Have a sprite follow a path """
         if self.cur_position is None:
-            self.cur_position = len(self.position_list) - 1
+            self.cur_position = 0
+
+        if self.health <= 0:
+            self.remove_from_sprite_lists()
 
         if self.arrived:
             return
 
-        if self.health <= 0:
-            self.remove_from_sprite_lists()
         # Where are we
         start_x = self.center_x
         start_y = self.center_y
@@ -97,9 +106,63 @@ class Enemy(arcade.Sprite):
 
         # If we are there, head to the next point.
         if distance <= self.speed:
-            self.cur_position = self.cur_position - 1
-            if self.cur_position <= 0:
+            self.cur_position += 1
+            if self.cur_position == len(self.position_list):
                 self.arrived = True
+
+
+def find_in_maze(maze, val):
+    for row in range(len(maze)):
+        for col in range(len(maze[0])):
+            if maze[row][col] == val:
+                return [col, row]
+    return None
+
+
+def convert_grid_to_coords(grid):
+    return [grid[1] * SPRITE_SIZE + SPRITE_SIZE / 2, grid[0] * SPRITE_SIZE + SPRITE_SIZE / 2]
+
+
+def check_maze_pos(maze, pos):
+    x = pos[0]
+    y = pos[1]
+    if len(maze) <= y:
+        return False
+    if y < 0:
+        return False
+    if len(maze[0]) <= x:
+        return False
+    if x < 0:
+        return False
+    return maze[y][x] == 2 or maze[y][x] == 4
+
+
+def get_neighbors(pos):
+    x = pos[0]
+    y = pos[1]
+    left = [x - 1, y]
+    right = [x + 1, y]
+    down = [x, y + 1]
+    up = [x, y - 1]
+    return [left, right, down, up]
+
+
+def get_path(maze):
+    start = find_in_maze(maze, 3)
+    end = find_in_maze(maze, 4)
+    pos = start
+    node = maze[start[1]][start[0]]
+    path = [start]
+    while node != 4:
+        neighbors = get_neighbors(pos)
+        for neighbor in neighbors:
+            if check_maze_pos(maze, neighbor) and neighbor not in path:
+                path.append(neighbor)
+                pos = neighbor
+                node = maze[pos[1]][pos[0]]
+                break
+
+    return [convert_grid_to_coords(x) for x in path]
 
 
 class MyGame(arcade.Window):
@@ -119,10 +182,12 @@ class MyGame(arcade.Window):
         self.goal_position = None
         self.enemy_start = None
         self.player_list = None
+        self.tile_map = None
         self.wall_list = None
         self.enemy_list = None
         self.turret_list = None
         self.bullet_list = None
+        self.maze = None
         self.frame_count = 0
 
         # Set up the player info
@@ -149,20 +214,38 @@ class MyGame(arcade.Window):
         # Set the window background color
         self.background_color = arcade.color.AMAZON
 
-    def setup_walls(self):
-        spacing = SPRITE_SIZE * 3
-        for column in range(10):
-            for row in range(15):
-                sprite = arcade.Sprite(":resources:images/tiles/grassCenter.png",
-                                       SPRITE_SCALING)
-
-                x = (column + 1) * spacing
-                y = (row + 1) * sprite.height
-
-                sprite.center_x = x
-                sprite.center_y = y
-                if random.randrange(100) > 80:
-                    self.wall_list.append(sprite)
+    def setup_maze(self):
+        maze = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [3, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 4],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ]
+        self.maze = maze
+        for row in range(MAZE_HEIGHT):
+            for column in range(MAZE_WIDTH):
+                if maze[row][column] == 1:
+                    wall = arcade.Sprite(":resources:images/tiles/grassCenter.png", SPRITE_SCALING)
+                    wall.center_x = row * SPRITE_SIZE + SPRITE_SIZE / 2
+                    wall.center_y = column * SPRITE_SIZE + SPRITE_SIZE / 2
+                    self.wall_list.append(wall)
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -174,6 +257,8 @@ class MyGame(arcade.Window):
         self.enemy_list = arcade.SpriteList()
         self.turret_list = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
+        self.setup_maze()
+        self.path = get_path(self.maze)
 
         # Set up the player
         resource = ":resources:images/animated_characters/" \
@@ -189,50 +274,12 @@ class MyGame(arcade.Window):
         self.physics_engine = arcade.PhysicsEngineSimple(self.player,
                                                          self.wall_list)
 
-        grid_size = SPRITE_SIZE
-
-        playing_field_left_boundary = -SPRITE_SIZE * 2
-        playing_field_right_boundary = SPRITE_SIZE * 35
-        playing_field_top_boundary = SPRITE_SIZE * 17
-        playing_field_bottom_boundary = -SPRITE_SIZE * 2
-
-
-        self.setup_walls()
-
         # Create the enemy
         enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
                       SPRITE_SCALING_ENEMY, self.path)
 
         # Add the enemy to the enemy list
         self.enemy_list.append(enemy)
-
-        self.barrier_list = arcade.AStarBarrierList(self.enemy_list[0],
-                                                    self.wall_list,
-                                                    grid_size,
-                                                    playing_field_left_boundary,
-                                                    playing_field_right_boundary,
-                                                    playing_field_bottom_boundary,
-                                                    playing_field_top_boundary)
-
-        self.path = arcade.astar_calculate_path(self.goal_position,
-                                                self.enemy_start,
-                                                self.barrier_list,
-                                                diagonal_movement=False)
-
-        while self.path is None:
-            self.setup_walls()
-            self.path = arcade.astar_calculate_path(self.goal_position,
-                                                    self.enemy_start,
-                                                    self.barrier_list,
-                                                    diagonal_movement=False)
-
-        self.setup_turrets()
-
-        for enemy in self.enemy_list:
-            enemy.center_x = self.enemy_start[0]
-            enemy.center_y = self.enemy_start[1]
-            if self.path is not None:
-                enemy.position_list = self.path
 
     def setup_turrets(self):
         assert self.wall_list is not None
