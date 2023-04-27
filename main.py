@@ -38,6 +38,30 @@ VIEWPORT_MARGIN = 100
 MAZE_HEIGHT = 21
 MAZE_WIDTH = 21
 
+windy_maze = [
+    [1, 1, 1, 3, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1],
+    [1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1],
+    [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+]
+
 
 class Turret(arcade.Sprite):
     def __init__(self, image, scale):
@@ -215,29 +239,7 @@ class MyGame(arcade.Window):
         self.background_color = arcade.color.AMAZON
 
     def setup_maze(self):
-        maze = [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [3, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 4],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        ]
+        maze = windy_maze
         self.maze = maze
         for row in range(MAZE_HEIGHT):
             for column in range(MAZE_WIDTH):
@@ -246,6 +248,8 @@ class MyGame(arcade.Window):
                     wall.center_x = row * SPRITE_SIZE + SPRITE_SIZE / 2
                     wall.center_y = column * SPRITE_SIZE + SPRITE_SIZE / 2
                     self.wall_list.append(wall)
+                if maze[row][column] == 3:
+                    self.enemy_start = [row * SPRITE_SIZE + SPRITE_SIZE / 2, column * SPRITE_SIZE + SPRITE_SIZE / 2]
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -259,6 +263,7 @@ class MyGame(arcade.Window):
         self.bullet_list = arcade.SpriteList()
         self.setup_maze()
         self.path = get_path(self.maze)
+        self.setup_turrets()
 
         # Set up the player
         resource = ":resources:images/animated_characters/" \
@@ -269,17 +274,11 @@ class MyGame(arcade.Window):
         self.player_list.append(self.player)
 
         self.goal_position = (SPRITE_SIZE * 15, SPRITE_SIZE * 4)
-        self.enemy_start = (SPRITE_SIZE * -1, SPRITE_SIZE * 0)
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player,
                                                          self.wall_list)
 
-        # Create the enemy
-        enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
-                      SPRITE_SCALING_ENEMY, self.path)
-
-        # Add the enemy to the enemy list
-        self.enemy_list.append(enemy)
+        self.spawn_enemy()
 
     def setup_turrets(self):
         assert self.wall_list is not None
@@ -299,6 +298,16 @@ class MyGame(arcade.Window):
             turret.center_x = wall_priority_list[i][0].center_x
             turret.center_y = wall_priority_list[i][0].center_y
             self.turret_list.append(turret)
+
+    def spawn_enemy(self):
+        # Create the enemy
+        enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
+                      SPRITE_SCALING_ENEMY, self.path)
+        enemy.center_x = self.enemy_start[0]
+        enemy.center_y = self.enemy_start[1]
+
+        # Add the enemy to the enemy list
+        self.enemy_list.append(enemy)
 
     def on_draw(self):
         """
@@ -369,10 +378,7 @@ class MyGame(arcade.Window):
 
         # Create the enemy
         if self.frame_count % 30 == 0:
-            enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
-                          SPRITE_SCALING_ENEMY, self.path)
-            # Add the enemy to the enemy list
-            self.enemy_list.append(enemy)
+            self.spawn_enemy()
 
         if self.up_pressed and not self.down_pressed:
             self.player.change_y = MOVEMENT_SPEED
