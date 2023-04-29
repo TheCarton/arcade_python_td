@@ -1,15 +1,16 @@
 """
-A-Star Path-finding
-
+Final Project Game AI
 Artwork from https://kenney.nl
 
 If Python and Arcade are installed, this example can be run from the command line with:
 python -m arcade.examples.astar_pathfinding
 """
+import math
 
 import arcade
 import random
-import math
+import utilities
+import turret_placement_ai
 
 # --- Constants ---
 SPRITE_SCALING_PLAYER = 0.5
@@ -17,16 +18,18 @@ SPRITE_SCALING_ENEMY = 0.25
 TILE_SCALING = 0.5
 ENEMY_SPEED = 3.0
 
-BULLET_SPEED = 4
+BULLET_SPEED = 10
+TURRET_RANGE = 100
 
 SPRITE_IMAGE_SIZE = 128
 SPRITE_SCALING = 0.25
+BULLET_SCALING = 0.75
 SPRITE_SIZE = int(SPRITE_IMAGE_SIZE * SPRITE_SCALING)
 GRID_PIXEL_SIZE = SPRITE_IMAGE_SIZE * TILE_SCALING
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-SCREEN_TITLE = "A-Star Path-finding"
+SCREEN_TITLE = "Final Project: Tower Defense AI"
 
 MOVEMENT_SPEED = 5
 
@@ -37,6 +40,30 @@ VIEWPORT_MARGIN = 100
 # Openings go on ODD rows/columns
 MAZE_HEIGHT = 21
 MAZE_WIDTH = 21
+
+two_halls = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1],
+    [3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 4, 1, 1],
+]
 
 windy_maze = [
     [1, 1, 1, 3, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -66,6 +93,28 @@ windy_maze = [
 class Turret(arcade.Sprite):
     def __init__(self, image, scale):
         super().__init__(image, scale)
+        self.target = None
+
+    def update_target(self, target):
+        self.target = target
+
+
+class Bullet(arcade.Sprite):
+    def __init__(self, image, scale, start_pos, angle):
+        super().__init__(image, scale)
+        self.start_pos = start_pos
+        self.center_x = start_pos[0]
+        self.center_y = start_pos[1]
+        self.angle = math.degrees(angle)
+        self.change_x = math.cos(angle) * BULLET_SPEED
+        self.change_y = math.sin(angle) * BULLET_SPEED
+
+    def update(self):
+        dist_traveled = math.sqrt((self.center_x - self.start_pos[0]) ** 2 + (self.center_y - self.start_pos[1]) ** 2)
+        if dist_traveled > TURRET_RANGE:
+            self.remove_from_sprite_lists()
+        self.center_x += self.change_x
+        self.center_y += self.change_y
 
 
 class Enemy(arcade.Sprite):
@@ -79,10 +128,19 @@ class Enemy(arcade.Sprite):
         self.position_list = position_list
         self.cur_position = None
         self.speed = ENEMY_SPEED
+        self.hit_time = 0
         self.health = 10.0
+        self.slow_time = 0
 
     def take_damage(self, damage):
         self.health -= damage
+        self.hit_time = 0.10
+        self.color = [255, 0, 0]
+
+    def become_slow(self):
+        self.slow_time = 1
+        self.color = [0, 0, 255]
+        self.speed = 0.5 * ENEMY_SPEED
 
     def update(self):
         """ Have a sprite follow a path """
@@ -93,6 +151,7 @@ class Enemy(arcade.Sprite):
             self.remove_from_sprite_lists()
 
         if self.arrived:
+            self.remove_from_sprite_lists()
             return
 
         # Where are we
@@ -120,6 +179,7 @@ class Enemy(arcade.Sprite):
         # Calculate vector to travel
         change_x = math.cos(angle) * speed
         change_y = math.sin(angle) * speed
+        self.velocity = [change_x, change_y]
 
         # Update our location
         self.center_x += change_x
@@ -128,7 +188,6 @@ class Enemy(arcade.Sprite):
         # How far are we?
         distance = math.sqrt((self.center_x - dest_x) ** 2 + (self.center_y - dest_y) ** 2)
 
-        # If we are there, head to the next point.
         if distance <= self.speed:
             self.cur_position += 1
             if self.cur_position == len(self.position_list):
@@ -136,11 +195,12 @@ class Enemy(arcade.Sprite):
 
 
 def find_in_maze(maze, val):
+    found = []
     for row in range(len(maze)):
         for col in range(len(maze[0])):
             if maze[row][col] == val:
-                return [col, row]
-    return None
+                found.append([col, row])
+    return found
 
 
 def convert_grid_to_coords(grid):
@@ -171,22 +231,24 @@ def get_neighbors(pos):
     return [left, right, down, up]
 
 
-def get_path(maze):
-    start = find_in_maze(maze, 3)
-    end = find_in_maze(maze, 4)
-    pos = start
-    node = maze[start[1]][start[0]]
-    path = [start]
-    while node != 4:
-        neighbors = get_neighbors(pos)
-        for neighbor in neighbors:
-            if check_maze_pos(maze, neighbor) and neighbor not in path:
-                path.append(neighbor)
-                pos = neighbor
-                node = maze[pos[1]][pos[0]]
-                break
-
-    return [convert_grid_to_coords(x) for x in path]
+def get_paths(maze):
+    starts = find_in_maze(maze, 3)
+    paths = []
+    for start in starts:
+        path = []
+        pos = start
+        node = maze[start[1]][start[0]]
+        path.append(start)
+        while node != 4:
+            neighbors = get_neighbors(pos)
+            for neighbor in neighbors:
+                if check_maze_pos(maze, neighbor) and neighbor not in path:
+                    path.append(neighbor)
+                    pos = neighbor
+                    node = maze[pos[1]][pos[0]]
+                    break
+        paths.append([convert_grid_to_coords(x) for x in path])
+    return paths
 
 
 class MyGame(arcade.Window):
@@ -204,13 +266,15 @@ class MyGame(arcade.Window):
 
         # Variables that will hold sprite lists
         self.goal_position = None
-        self.enemy_start = None
+        self.enemy_starts = None
         self.player_list = None
         self.tile_map = None
         self.wall_list = None
         self.enemy_list = None
         self.turret_list = None
+        self.slow_beams = None
         self.bullet_list = None
+        self.slow_bullets = None
         self.maze = None
         self.frame_count = 0
 
@@ -227,7 +291,7 @@ class MyGame(arcade.Window):
 
         # --- Related to paths
         # List of points that makes up a path between two points
-        self.path = None
+        self.paths = None
         # List of points we checked to see if there is a barrier there
         self.barrier_list = None
 
@@ -239,7 +303,7 @@ class MyGame(arcade.Window):
         self.background_color = arcade.color.AMAZON
 
     def setup_maze(self):
-        maze = windy_maze
+        maze = two_halls
         self.maze = maze
         for row in range(MAZE_HEIGHT):
             for column in range(MAZE_WIDTH):
@@ -248,8 +312,6 @@ class MyGame(arcade.Window):
                     wall.center_x = row * SPRITE_SIZE + SPRITE_SIZE / 2
                     wall.center_y = column * SPRITE_SIZE + SPRITE_SIZE / 2
                     self.wall_list.append(wall)
-                if maze[row][column] == 3:
-                    self.enemy_start = [row * SPRITE_SIZE + SPRITE_SIZE / 2, column * SPRITE_SIZE + SPRITE_SIZE / 2]
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -260,10 +322,15 @@ class MyGame(arcade.Window):
                                            spatial_hash_cell_size=128)
         self.enemy_list = arcade.SpriteList()
         self.turret_list = arcade.SpriteList()
+        self.slow_beams = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
+        self.slow_bullets = arcade.SpriteList()
         self.setup_maze()
-        self.path = get_path(self.maze)
+        self.paths = get_paths(self.maze)
         self.setup_turrets()
+        self.setup_slow_beams()
+        self.enemy_starts = find_in_maze(self.maze, 3)
+        self.enemy_starts = [convert_grid_to_coords(p) for p in self.enemy_starts]
 
         # Set up the player
         resource = ":resources:images/animated_characters/" \
@@ -278,33 +345,41 @@ class MyGame(arcade.Window):
         self.physics_engine = arcade.PhysicsEngineSimple(self.player,
                                                          self.wall_list)
 
-        self.spawn_enemy()
+    def spawn_turret(self, wall):
+        resource = ":resources:images/space_shooter/playerShip1_orange.png"
+        turret = Turret(resource, SPRITE_SCALING)
+        turret.center_x = wall.center_x
+        turret.center_y = wall.center_y
+        self.turret_list.append(turret)
+        self.wall_list.remove(wall)
+
+    def spawn_slow_beam(self, wall):
+        resource = ":resources:images/topdown_tanks/tankBody_blue.png"
+        turret = Turret(resource, SPRITE_SCALING)
+        turret.center_x = wall.center_x
+        turret.center_y = wall.center_y
+        self.slow_beams.append(turret)
+        self.wall_list.remove(wall)
 
     def setup_turrets(self):
         assert self.wall_list is not None
-        resource = ":resources:images/space_shooter/playerShip1_orange.png"
-        wall_priority_list = []
-        for wall in self.wall_list:
-            distance = 0
-            for pos in self.path:
-                # How far are we?
-                distance += math.sqrt((wall.center_x - pos[0]) ** 2 + (wall.center_y - pos[1]) ** 2)
-            wall_priority_list.append((wall, distance))
+        for path in self.paths:
+            for i in range(2):
+                placement_wall = turret_placement_ai.min_total_distance(path, self.wall_list, TURRET_RANGE)
+                self.spawn_turret(placement_wall)
 
-        wall_priority_list.sort(key=lambda x: x[1])
+    def setup_slow_beams(self):
+        assert self.wall_list is not None
+        for i in range(2):
+            placement_wall = turret_placement_ai.diff_slow(self.paths[0], self.paths[1], self.wall_list, TURRET_RANGE)
+            self.spawn_slow_beam(placement_wall)
 
-        for i in range(5):
-            turret = arcade.Sprite(resource, SPRITE_SCALING)
-            turret.center_x = wall_priority_list[i][0].center_x
-            turret.center_y = wall_priority_list[i][0].center_y
-            self.turret_list.append(turret)
-
-    def spawn_enemy(self):
+    def spawn_enemy(self, path, position):
         # Create the enemy
         enemy = Enemy(":resources:images/animated_characters/robot/robot_idle.png",
-                      SPRITE_SCALING_ENEMY, self.path)
-        enemy.center_x = self.enemy_start[0]
-        enemy.center_y = self.enemy_start[1]
+                      SPRITE_SCALING_ENEMY, path)
+        enemy.center_x = position[0]
+        enemy.center_y = position[1]
 
         # Add the enemy to the enemy list
         self.enemy_list.append(enemy)
@@ -322,51 +397,83 @@ class MyGame(arcade.Window):
         self.enemy_list.draw()
         self.turret_list.draw()
         self.bullet_list.draw()
+        self.slow_beams.draw()
+        self.slow_bullets.draw()
 
-        if self.path:
-            arcade.draw_line_strip(self.path, arcade.color.BLUE, 2)
+        for path in self.paths:
+            arcade.draw_line_strip(path, arcade.color.BLUE, 2)
 
-    def update_turrets(self, delta_time):
+    def closest_enemy(self, pos):
+        closest_enemy = None
+        dist = None
         for enemy in self.enemy_list:
-            for turret in self.turret_list:
-                start_x = turret.center_x
-                start_y = turret.center_y
+            if closest_enemy is None:
+                closest_enemy = enemy
+            new_dist = math.sqrt((pos[0] - enemy.center_x) ** 2 + (pos[1] - enemy.center_y) ** 2)
+            if dist is None:
+                dist = new_dist
+            if new_dist < dist:
+                dist = new_dist
+                closest_enemy = enemy
+        return closest_enemy, dist
 
-                dest_x = enemy.center_x
-                dest_y = enemy.center_y
+    def furthest_enemy(self):
+        return max(self.enemy_list, key=lambda e: e.cur_position)
 
-                x_diff = dest_x - start_x
-                y_diff = dest_y - start_y
-                angle = math.atan2(y_diff, x_diff)
+    def get_furthest_target_in_range(self, pos):
+        target = None
+        path_index = None
+        enemy_list = sorted(self.enemy_list, key=lambda e: e.cur_position, reverse=True)
+        for enemy in enemy_list:
+            aim_point = utilities.lead_target(pos, enemy, BULLET_SPEED)
+            if aim_point is None:
+                continue
+            dist = utilities.get_dist(aim_point, pos)
 
-                turret.angle = math.degrees(angle) - 90
+            if dist < TURRET_RANGE:
+                return aim_point
 
-                if self.frame_count % 60 == 0:
-                    bullet = arcade.Sprite(":resources:images/space_shooter/laserBlue01.png")
-                    bullet.center_x = start_x
-                    bullet.center_y = start_y
+    def update_turrets(self, delta_time, slow=False):
+        if slow:
+            bullets = self.slow_bullets
+            turrets = self.slow_beams
+        else:
+            bullets = self.bullet_list
+            turrets = self.turret_list
 
-                    bullet.angle = math.degrees(angle)
+        for turret in turrets:
+            turret.target = self.get_furthest_target_in_range(turret.position)
+            if turret.target is None:
+                continue
+            start_x = turret.center_x
+            start_y = turret.center_y
 
-                    # Taking into account the angle, calculate our change_x
-                    # and change_y. Velocity is how fast the bullet travels.
-                    bullet.change_x = math.cos(angle) * BULLET_SPEED
-                    bullet.change_y = math.sin(angle) * BULLET_SPEED
+            dest_x = turret.target[0]
+            dest_y = turret.target[1]
 
-                    self.bullet_list.append(bullet)
+            x_diff = dest_x - start_x
+            y_diff = dest_y - start_y
+            angle = math.atan2(y_diff, x_diff)
 
-        for bullet in self.bullet_list:
+            turret.angle = math.degrees(angle) - 90
+
+            if self.frame_count % 60 == 0:
+                resource = ":resources:images/space_shooter/laserBlue01.png"
+                bullet = Bullet(resource, BULLET_SCALING, (start_x, start_y), angle)
+                if not slow:
+                    bullet.color = (255, 0, 0)
+                bullets.append(bullet)
+
+        for bullet in bullets:
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(bullet, enemy):
-                    enemy.take_damage(2)
+                    if slow:
+                        enemy.become_slow()
+                    else:
+                        enemy.take_damage(2)
                     bullet.remove_from_sprite_lists()
-                    continue
 
-            # If the bullet flies off-screen, remove it.
-            if bullet.bottom > self.width or bullet.top < 0 or bullet.right < 0 or bullet.left > self.width:
-                bullet.remove_from_sprite_lists()
-
-        self.bullet_list.update()
+        bullets.update()
 
     def on_update(self, delta_time):
         """ Movement and game logic """
@@ -378,7 +485,8 @@ class MyGame(arcade.Window):
 
         # Create the enemy
         if self.frame_count % 30 == 0:
-            self.spawn_enemy()
+            for path, start in zip(self.paths, self.enemy_starts):
+                self.spawn_enemy(path, start)
 
         if self.up_pressed and not self.down_pressed:
             self.player.change_y = MOVEMENT_SPEED
@@ -389,9 +497,18 @@ class MyGame(arcade.Window):
         elif self.right_pressed and not self.left_pressed:
             self.player.change_x = MOVEMENT_SPEED
 
+        for enemy in self.enemy_list:
+            enemy.hit_time -= delta_time
+            if enemy.hit_time <= 0:
+                enemy.color = (255, 255, 255)
+            enemy.slow_time -= delta_time
+            if enemy.slow_time <= 0:
+                enemy.speed = ENEMY_SPEED
+                enemy.color = (255, 255, 255)
         # Update the character
         self.physics_engine.update()
         self.enemy_list.update()
+        self.update_turrets(delta_time, True)
         self.update_turrets(delta_time)
 
         # --- Manage Scrolling ---
